@@ -86,7 +86,9 @@ int main(int argc, char** argv)
    config_path = (std::string)PROJECT_PATH;
 #endif
 
-   config_path += "/config/config.yaml";
+  // change config path to parameter, for now still hardcoded for composed setup
+  // config_path += "/config/config.yaml";
+  config_path = "rs-lidar-m1.yaml";
 
 #ifdef ROS_FOUND
   ros::NodeHandle priv_hh("~");
