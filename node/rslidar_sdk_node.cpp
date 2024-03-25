@@ -30,38 +30,34 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWIS
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *********************************************************************************************************************/
 
+
 #include "manager/node_manager.hpp"
 
 #include <rs_driver/macro/version.hpp>
 #include <signal.h>
 
-#ifdef ROS_FOUND
-#include <ros/ros.h>
-#include <ros/package.h>
-#elif ROS2_FOUND
+
+
 #include <rclcpp/rclcpp.hpp>
-#endif
+
 
 using namespace robosense::lidar;
 
-#ifdef ROS2_FOUND
 std::mutex g_mtx;
 std::condition_variable g_cv;
-#endif
+
+
+using namespace robosense::lidar;
 
 static void sigHandler(int sig)
 {
   RS_MSG << "RoboSense-LiDAR-Driver is stopping....." << RS_REND;
-
-#ifdef ROS_FOUND
-  ros::shutdown();
-#elif ROS2_FOUND
-  g_cv.notify_all();
-#endif
+  rclcpp::shutdown();
 }
 
 int main(int argc, char** argv)
 {
+ 
   signal(SIGINT, sigHandler);  ///< bind ctrl+c signal with the sigHandler function
 
   RS_TITLE << "********************************************************" << RS_REND;
@@ -72,33 +68,25 @@ int main(int argc, char** argv)
   RS_TITLE << "**********                                    **********" << RS_REND;
   RS_TITLE << "********************************************************" << RS_REND;
 
-#ifdef ROS_FOUND
-  ros::init(argc, argv, "rslidar_sdk_node", ros::init_options::NoSigintHandler);
-#elif ROS2_FOUND
+
   rclcpp::init(argc, argv);
-#endif
+
+  auto node = std::make_shared<rclcpp::Node>("rslidar_sdk_node");
 
   std::string config_path;
-
-#ifdef RUN_IN_ROS_WORKSPACE
-   config_path = ros::package::getPath("rslidar_sdk");
-#else
-   config_path = (std::string)PROJECT_PATH;
-#endif
-
-  // change config path to parameter, for now still hardcoded for composed setup
-  config_path += "/config/config.yaml";
-  // config_path = "/ros_ws/src/bpearl_sensor_docker/src/rslidar_sdk/config/config.yaml";
-
-#ifdef ROS_FOUND
-  ros::NodeHandle priv_hh("~");
-  std::string path;
-  priv_hh.param("config_path", path, std::string(""));
-  if (!path.empty())
-  {
-    config_path = path;
+  if (argc > 1) {
+    for (int i = 1; i < argc; ++i) {
+      if (std::string(argv[i]) == "-c" && i + 1 < argc) {
+        config_path = argv[i + 1];
+        break;
+      }
+    }
   }
-#endif
+
+  if (config_path.empty()) {
+    RS_ERROR << "Config path parameter not found. Please provide a valid config_path parameter." << RS_REND;
+    return -1;
+  }
 
   YAML::Node config;
   try
@@ -118,12 +106,9 @@ int main(int argc, char** argv)
 
   RS_MSG << "RoboSense-LiDAR-Driver is running....." << RS_REND;
 
-#ifdef ROS_FOUND
-  ros::spin();
-#elif ROS2_FOUND
   std::unique_lock<std::mutex> lck(g_mtx);
   g_cv.wait(lck);
-#endif
+
 
   return 0;
 }
